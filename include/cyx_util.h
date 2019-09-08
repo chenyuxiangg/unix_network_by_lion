@@ -57,6 +57,10 @@ ssize_t Write(int fd,const void* buf,size_t count){
 	return n;
 	}
 
+int max(const int& a,const int& b){
+	return (a >= b ? a : b);
+	}
+
 /*
 *
 *================writen================
@@ -165,6 +169,20 @@ ssize_t Writen(int fd,const void* vptr,size_t n){
 	}
 
 /*
+*=================Select===================
+*
+*description:select的带错误提示版
+*
+*参数、返回值与select函数相同
+*
+*/
+int Select(int nfds,fd_set* readfds,fd_set* writefds,fd_set* exceptfds,struct timeval* timeout){
+	int n;
+	if((n = select(nfds,readfds,writefds,exceptfds,timeout)) < 0)
+		err_sys("select error");
+	}
+
+/*
 *==================str_echo=================
 *
 *description:用于回射服务器，获取到从客户机发送的消息并原样返回给客户机
@@ -202,16 +220,32 @@ void str_echo(int fd){
 *return:void
 *
 *arg:
-*fd(int):文件描述符，与服务端连接的套接字
+*fp(FILE*):字符串源，可能为标准输入
+*sockfd(int):文件描述符，与服务端连接的套接字
 */
 
-void str_cli(FILE* fp,int fd){
-	char sendline[MAXLINE],recvline[MAXLINE];
-	while(fgets(sendline,MAXLINE,fp) != NULL){
-		Writen(fd,sendline,strlen(sendline));
-		if(Readline(fd,recvline,MAXLINE) == 0)
-			err_quit("str_cli:server terminated prematurely");
-		fputs(recvline,stdout);
+void str_cli(FILE* fp,int sockfd){
+	fd_set rset;
+	char recvline[MAXLINE],sendline[MAXLINE];
+	FD_ZERO(&rset);
+
+	int maxfdl;
+	while(true){
+		FD_SET(fileno(fp),&rset);
+		FD_SET(sockfd,&rset);
+		maxfdl = max(fileno(fp),sockfd) + 1;
+		Select(maxfdl,&rset,NULL,NULL,NULL);
+		
+		if(FD_ISSET(fileno(fp),&rset)){
+			if(fgets(sendline,MAXLINE,fp) == NULL)
+				return;
+			Writen(sockfd,sendline,strlen(sendline));
+			}
+		if(FD_ISSET(sockfd,&rset)){
+			if(Readline(sockfd,recvline,MAXLINE) == 0)
+				err_quit("str_cli:server terminated prematurely");
+			}
+			fputs(recvline,stdout);
 		}
 	}
 

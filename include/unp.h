@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <signal.h>
+#include <sys/select.h>
+#include <math.h>
 
 //macro
 //--const value
